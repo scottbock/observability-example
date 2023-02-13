@@ -1,0 +1,97 @@
+version: "3.9"
+
+networks:
+  telemetry:
+
+volumes:
+  influxdb-storage:
+  grafana-storage:
+
+services:
+
+  grafana:
+    image: grafana/grafana:9.3.1
+    depends_on:
+      - influxdb
+    volumes:
+      - ./docker/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+      - grafana-storage:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin1
+      - GF_SERVER_HTTP_PORT=3000
+      - INFLUXDB_HOST=influxdb
+      - INFLUXDB_PORT=8086
+      - INFLUXDB_NAME=db0
+      - INFLUXDB_USER=influxuser
+      - INFLUXDB_PASS=influxuser1
+    ports:
+      - "3000:3000"
+    networks:
+      - telemetry
+
+  influxdb:
+    image: influxdb:latest
+    ports:
+      - '8086:8086'
+    volumes:
+      - influxdb-storage:/var/lib/influxdb
+    environment:
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_ADMIN_USER=influxuser
+      - INFLUXDB_ADMIN_PASSWORD=influxuser1
+
+  loki:
+    image: grafana/loki:2.7.1
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/loki.yaml
+    volumes:
+      - ./docker/loki.yaml:/etc/loki/loki.yaml
+    networks:
+      - telemetry
+
+  tempo:
+    image: grafana/tempo:1.5.0
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./docker/tempo.yaml:/etc/tempo.yaml
+      - ./data/tempo:/tmp/tempo
+    ports:
+      - "14268:14268"  # jaeger ingest
+      - "3200:3200"   # tempo
+      - "55680:55680"  # otlp grpc
+      - "55681:55681"  # otlp http
+      - "9411:9411"   # zipkin
+      - "4318:4318"   # new http
+      - "4317:4317"   # new grpc
+
+    networks:
+      - telemetry
+
+  mimir:
+    image: grafana/mimir:2.5.0
+    command: "-config.file=/etc/mimir/mimir.yaml"
+    ports:
+      - "9009:9009"
+    volumes:
+      - "./docker/mimir.yaml:/etc/mimir/mimir.yaml"
+      - "/tmp/mimir/rules:/tmp/mimir/rules"
+    networks:
+      - telemetry
+
+  grafana-agent:
+    image: grafana/agent:v0.22.0
+    volumes:
+      - ./docker/grafana-agent.yaml:/etc/agent-config/grafana-agent.yaml
+      - ./logs/:/var/log/
+    entrypoint:
+      - /bin/agent
+      - -config.file=/etc/agent-config/grafana-agent.yaml
+      - -prometheus.wal-directory=/tmp/agent/wal
+    ports:
+      - "12345:12345"
+    networks:
+      - telemetry
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

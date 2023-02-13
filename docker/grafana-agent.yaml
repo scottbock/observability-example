@@ -1,0 +1,37 @@
+server:
+  log_level: debug
+  http_listen_port: 12345
+
+metrics:
+  global:
+    scrape_interval: 1m
+  configs:
+    - name: test
+      host_filter: false
+      scrape_configs:
+        - job_name: test_scrape
+          metrics_path: '/actuator/prometheus'
+          scrape_interval: 2s
+          static_configs:
+            - targets: [ 'host.docker.internal:8080' ]
+              labels:
+                env: "local"
+                app: "observability-example"
+      remote_write:
+        - url: http://mimir:9009/api/v1/push
+
+logs:
+  configs:
+    - name: default
+      positions:
+        filename: /tmp/localhost-positions.yaml
+      clients:
+        - url: http://loki:3100/loki/api/v1/push
+      scrape_configs:
+        - job_name: system
+          static_configs:
+            - labels:
+                job: localhostlogs
+                __path__: /var/log/*log
+                env: "local"
+                app: "observability-example"

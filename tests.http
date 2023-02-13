@@ -1,0 +1,25 @@
+GET http://localhost:8080/debugTest
+
+###
+
+GET http://localhost:8080/errorTest
+
+###
+
+GET http://localhost:8080/traceTest
+
+###
+
+GET http://localhost:8080/factor/12
+
+###
+
+GET http://localhost:8080/factor/24356
+
+###
+
+GET http://localhost:8080/factor/124356
+
+###
+
+GET http://localhost:8080/factor/1324356
